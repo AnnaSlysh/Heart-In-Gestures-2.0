@@ -57,7 +57,7 @@ class DynamicGestureProcessor(VideoProcessorBase):
         try:
             self._classifier = DynamicGestureClassifier()
         except Exception as e:
-            print(f"[DynamicGestureProcessor] classifier load failed: {e}", flush=True)
+            print(f"[DynamicGestureProcessor] dynamic classifier load failed: {e}", flush=True)
             self._classifier = None
         _label_path = _os.path.join(
             _os.path.dirname(_os.path.abspath(__file__)),
@@ -65,6 +65,20 @@ class DynamicGestureProcessor(VideoProcessorBase):
         )
         with open(_label_path, encoding='utf-8-sig') as f:
             self._labels = [row[0] for row in _csv.reader(f) if row]
+        # Static classifier fallback (used when dynamic model is unavailable)
+        try:
+            from model.keypoint_classifier.keypoint_classifier import KeyPointClassifier
+            self._static_cls = KeyPointClassifier()
+            _skp = _os.path.join(
+                _os.path.dirname(_os.path.abspath(__file__)),
+                '..', 'model', 'keypoint_classifier', 'keypoint_classifier_label.csv'
+            )
+            with open(_skp, encoding='utf-8-sig') as f:
+                self._static_labels_raw = [row[0] for row in _csv.reader(f)]
+        except Exception as e2:
+            print(f"[DynamicGestureProcessor] static fallback load failed: {e2}", flush=True)
+            self._static_cls = None
+            self._static_labels_raw = []
         self._hands = mp.solutions.hands.Hands(
             static_image_mode=False,
             max_num_hands=1,
@@ -102,10 +116,7 @@ class DynamicGestureProcessor(VideoProcessorBase):
             top, top_cnt = (Counter(self._history).most_common(1)[0]
                             if self._history else (None, 0))
 
-        if self._classifier is None:
-            cv2.putText(img, "Модель недоступна / Model unavailable",
-                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 80, 220), 2)
-        elif result:
+        if result:
             cv2.putText(img, f"OK: {result} -- natisknit' knopku",
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 220, 0), 2)
         elif top:
@@ -119,6 +130,18 @@ class DynamicGestureProcessor(VideoProcessorBase):
     def _try_classify(self):
         """Called while holding self._lock."""
         if self._classifier is None:
+            # Fallback: use static KeyPoint classifier on the most recent frame
+            if self._static_cls is not None and self._window:
+                from model.keypoint_classifier.recognition import returnUkrainanLetter
+                hand_id = self._static_cls(list(self._window[-1]))
+                if 0 <= hand_id < len(self._static_labels_raw):
+                    letter = returnUkrainanLetter(self._static_labels_raw[hand_id]).upper()
+                    if letter != "?":
+                        self._best_guess = letter
+                        self._history.append(letter)
+                        top, top_cnt = Counter(self._history).most_common(1)[0]
+                        if top_cnt >= CONFIRM_COUNT:
+                            self._result = top
             return
         idx = self._classifier(list(self._window))
         if 0 <= idx < len(self._labels):
@@ -266,7 +289,7 @@ def app():
                 if "camera_key" not in st.session_state:
                     st.session_state.camera_key = 0
 
-                if is_dynamic and dynamic_model_exists():
+                if is_dynamic:
                     # Live video stream — processor collects 16 frames automatically
                     ctx = webrtc_streamer(
                         key=f"dynamic_{current_letter}",

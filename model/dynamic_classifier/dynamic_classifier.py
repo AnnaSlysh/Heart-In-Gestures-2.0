@@ -44,12 +44,4 @@ class DynamicGestureClassifier:
 
 
 def model_exists():
-    if not os.path.exists(MODEL_PATH):
-        return False
-    try:
-        import tensorflow as tf
-        with open(MODEL_PATH, 'rb') as f:
-            tf.lite.Interpreter(model_content=f.read())
-        return True
-    except Exception:
-        return False
+    return os.path.exists(MODEL_PATH)
