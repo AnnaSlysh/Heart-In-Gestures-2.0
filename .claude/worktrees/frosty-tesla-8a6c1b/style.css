@@ -1,0 +1,480 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+/* ─── Palette (from technovation-static-twin.lovable.app) ────────
+   hsl(30, 100%, 98%)   #FFFAF5  warm cream   — app background
+   hsl(163, 46%,  25%)  #225D4A  dark emerald — primary, headings, text
+   hsl(161, 39%,  46%)  #478C72  medium emerald — buttons, badges
+   hsl(161, 50%,  55%)  #4DB88A  bright emerald — sidebar, hover
+   hsl(45,  38%,  91%)  #EDE8D5  warm cream    — muted / chip fill
+   hsl(163, 20%,  80%)  #B5CEBC  soft border   — card borders, dividers
+   hsl(163, 30%,  35%)  #3E6E57  muted text
+   white  #FFFFFF                — card surfaces
+──────────────────────────────────────────────────────────────── */
+
+html { scroll-behavior: smooth; }
+footer { visibility: hidden; }
+
+.stApp {
+    background-color: hsl(30, 100%, 98%);
+    font-family: 'Nunito', sans-serif;
+}
+
+.block-container {
+    max-width: 860px;
+    padding: 2rem 2rem 4rem;
+}
+
+/* ─── Typography ─────────────────────────────────────────────── */
+.title_header {
+    color: hsl(163, 46%, 25%);
+    font-family: 'Nunito', sans-serif;
+    font-size: 44px;
+    text-align: center;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    margin-bottom: 4px;
+}
+
+.title_subheader {
+    font-size: 22px;
+    color: hsl(163, 46%, 25%);
+    text-align: center;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    margin: 24px 0 10px;
+}
+
+.title {
+    font-size: 32px;
+    color: hsl(163, 46%, 25%);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    margin-bottom: 16px;
+}
+
+/* ─── Page Hero ──────────────────────────────────────────────── */
+.page-hero {
+    background: hsl(163, 46%, 25%);
+    border-radius: 20px;
+    border-bottom: 4px solid hsl(163, 46%, 18%);
+    padding: 44px 36px 32px;
+    text-align: center;
+    margin-bottom: 32px;
+}
+.page-hero .title_header {
+    color: #ffffff;
+}
+.page-hero p {
+    color: rgba(255, 255, 255, 0.82);
+    font-family: 'Nunito', sans-serif;
+    font-size: 17px;
+    margin-top: 6px;
+    font-weight: 600;
+}
+
+/* ─── Cards ──────────────────────────────────────────────────── */
+.card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 26px 28px;
+    border: 2px solid hsl(163, 20%, 80%);
+    box-shadow: 0 4px 0 hsl(163, 20%, 80%);
+    margin-bottom: 16px;
+    transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+.card:hover {
+    border-color: hsl(161, 39%, 46%);
+    box-shadow: 0 4px 0 hsl(163, 46%, 25%);
+    transform: translateY(-2px);
+}
+.card-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: hsl(163, 46%, 25%);
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 8px;
+}
+.card-body {
+    color: hsl(163, 46%, 25%);
+    font-family: 'Nunito', sans-serif;
+    line-height: 1.7;
+    font-size: 15.5px;
+    font-weight: 600;
+}
+.card-body a {
+    color: hsl(161, 39%, 46%);
+    font-weight: 700;
+    text-decoration: none;
+}
+.card-body a:hover {
+    color: hsl(163, 46%, 25%);
+    text-decoration: underline;
+}
+
+/* ─── Step Cards ─────────────────────────────────────────────── */
+.step-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 18px 22px;
+    margin-bottom: 10px;
+    border: 2px solid hsl(163, 20%, 80%);
+    box-shadow: 0 4px 0 hsl(163, 20%, 80%);
+    transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+.step-card:hover {
+    border-color: hsl(161, 39%, 46%);
+    box-shadow: 0 4px 0 hsl(163, 46%, 25%);
+    transform: translateY(-2px);
+}
+.step-number {
+    background: hsl(161, 39%, 46%);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 900;
+    font-family: 'Nunito', sans-serif;
+    min-width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-bottom: 3px solid hsl(163, 46%, 25%);
+}
+.step-text {
+    color: hsl(163, 46%, 25%);
+    font-family: 'Nunito', sans-serif;
+    line-height: 1.7;
+    font-size: 15px;
+    font-weight: 600;
+    padding-top: 7px;
+}
+
+/* ─── Game Stat Cards ────────────────────────────────────────── */
+.game-stat {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    border: 2px solid hsl(163, 20%, 80%);
+    box-shadow: 0 4px 0 hsl(163, 20%, 80%);
+}
+.game-stat-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: hsl(163, 30%, 35%);
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 6px;
+}
+.game-stat-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: hsl(163, 46%, 25%);
+    font-family: 'Nunito', sans-serif;
+    word-break: break-all;
+    letter-spacing: 2px;
+}
+
+/* ─── Word Letter Boxes ──────────────────────────────────────── */
+.word-display {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 20px 0 8px;
+}
+.word-letter {
+    width: 52px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-size: 26px;
+    font-weight: 900;
+    font-family: 'Nunito', sans-serif;
+    border: 2px solid hsl(163, 20%, 80%);
+    background: #ffffff;
+    color: hsl(163, 46%, 25%);
+    transition: background 0.2s, border-color 0.2s;
+}
+.word-letter.correct {
+    background: hsl(142, 55%, 88%);
+    border-color: hsl(142, 50%, 52%);
+    color: hsl(142, 50%, 22%);
+}
+.word-letter.current {
+    background: hsl(45, 90%, 88%);
+    border-color: hsl(45, 70%, 52%);
+    color: hsl(30, 80%, 28%);
+    box-shadow: 0 0 0 3px hsl(45, 80%, 72%);
+}
+
+/* ─── Letter Chips ───────────────────────────────────────────── */
+.chip {
+    display: inline-block;
+    background: hsl(45, 38%, 91%);
+    border: 2px solid hsl(163, 20%, 80%);
+    color: hsl(163, 46%, 25%);
+    border-radius: 8px;
+    padding: 4px 12px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    margin: 3px;
+    letter-spacing: 0.5px;
+}
+.chip.wrong {
+    background: hsl(0, 60%, 95%);
+    border-color: hsl(0, 70%, 75%);
+    color: hsl(0, 60%, 35%);
+}
+
+/* ─── Level Cards ────────────────────────────────────────────── */
+.level-header {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 22px 14px 16px;
+    text-align: center;
+    border: 2px solid hsl(163, 20%, 80%);
+    box-shadow: 0 4px 0 hsl(163, 20%, 80%);
+    margin-bottom: 8px;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.level-header:hover {
+    border-color: hsl(161, 39%, 46%);
+    box-shadow: 0 4px 0 hsl(163, 46%, 25%);
+    transform: translateY(-2px);
+}
+.level-name {
+    font-size: 17px;
+    font-weight: 800;
+    color: hsl(163, 46%, 25%);
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 4px;
+}
+.level-desc {
+    font-size: 13px;
+    color: hsl(163, 30%, 35%);
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+/* ─── Partner Cards ──────────────────────────────────────────── */
+.partner-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 22px 26px;
+    margin-bottom: 16px;
+    border: 2px solid hsl(163, 20%, 80%);
+    box-shadow: 0 4px 0 hsl(163, 20%, 80%);
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.partner-card:hover {
+    border-color: hsl(161, 39%, 46%);
+    box-shadow: 0 4px 0 hsl(163, 46%, 25%);
+    transform: translateY(-2px);
+}
+.partner-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: hsl(163, 46%, 25%);
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 8px;
+}
+.partner-body {
+    color: hsl(163, 46%, 25%);
+    font-family: 'Nunito', sans-serif;
+    line-height: 1.7;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* ─── Section Tag ────────────────────────────────────────────── */
+.section-tag {
+    display: inline-block;
+    background: hsl(161, 39%, 46%);
+    color: #ffffff;
+    border-radius: 8px;
+    border-bottom: 3px solid hsl(163, 46%, 25%);
+    padding: 5px 16px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+
+/* ─── Letter Badge ───────────────────────────────────────────── */
+.letter-badge {
+    display: block;
+    background: hsl(161, 39%, 46%);
+    color: #ffffff;
+    font-family: 'Nunito', sans-serif;
+    font-size: 18px;
+    font-weight: 900;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    line-height: 43px;
+    text-align: center;
+    margin: 8px auto 4px;
+    border-bottom: 3px solid hsl(163, 46%, 25%);
+}
+
+/* ─── Divider ────────────────────────────────────────────────── */
+.divider {
+    height: 2px;
+    background: hsl(163, 20%, 80%);
+    border-radius: 2px;
+    margin: 28px 0;
+}
+
+/* ─── Legacy .text block ─────────────────────────────────────── */
+.text {
+    background: #ffffff;
+    color: hsl(163, 46%, 25%);
+    padding: 22px 26px;
+    border: 2px solid hsl(163, 20%, 80%);
+    border-radius: 16px;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    box-shadow: 0 4px 0 hsl(163, 20%, 80%);
+    line-height: 1.7;
+    font-size: 15.5px;
+    margin-bottom: 14px;
+}
+.text a {
+    color: hsl(161, 39%, 46%);
+    font-weight: 700;
+    text-decoration: none;
+}
+.text a:hover {
+    color: hsl(163, 46%, 25%);
+    text-decoration: underline;
+}
+
+/* ─── Sidebar ────────────────────────────────────────────────── */
+.stSidebar {
+    background: hsl(161, 50%, 55%);
+    font-family: 'Nunito', sans-serif;
+}
+.stSidebar .stMarkdown,
+.stSidebar p,
+.stSidebar label {
+    color: #ffffff !important;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+}
+.stSidebar h1, .stSidebar h2, .stSidebar h3 {
+    color: #ffffff !important;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 900;
+}
+.stSidebar .stRadio > div > label {
+    background: transparent;
+    border-radius: 10px;
+    padding: 8px 14px;
+    margin-bottom: 4px;
+    color: #ffffff !important;
+    font-weight: 700;
+    transition: background 0.15s;
+    font-size: 14px;
+}
+.stSidebar .stRadio > div > label:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* ─── Buttons ────────────────────────────────────────────────── */
+.stButton > button {
+    background: hsl(161, 39%, 46%);
+    color: #ffffff;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    padding: 11px 28px;
+    font-size: 15px;
+    border-radius: 12px;
+    border: none;
+    border-bottom: 4px solid hsl(163, 46%, 25%);
+    transition: transform 0.1s, border-bottom 0.1s, background 0.1s;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+.stButton > button:hover {
+    background: hsl(161, 50%, 55%);
+    border-bottom: 4px solid hsl(163, 46%, 25%);
+    transform: translateY(-1px);
+}
+.stButton > button:active {
+    border-bottom: 2px solid hsl(163, 46%, 25%);
+    transform: translateY(2px);
+}
+
+div.stButton > button {
+    padding: 0.68em 2em;
+    font-size: 15px;
+}
+
+.retry-button button,
+.back-button button {
+    background: hsl(161, 39%, 46%);
+    color: #ffffff;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    padding: 11px 26px;
+    font-size: 15px;
+    border-radius: 12px;
+    border: none;
+    border-bottom: 4px solid hsl(163, 46%, 25%);
+    transition: transform 0.1s, border-bottom 0.1s, background 0.1s;
+    white-space: nowrap;
+    text-transform: uppercase;
+}
+.retry-button button:hover,
+.back-button button:hover {
+    background: hsl(161, 50%, 55%);
+    transform: translateY(-1px);
+}
+.retry-button button:active,
+.back-button button:active {
+    border-bottom: 2px solid hsl(163, 46%, 25%);
+    transform: translateY(2px);
+}
+
+.btn {
+    background: hsl(161, 39%, 46%);
+    border: none;
+    border-bottom: 4px solid hsl(163, 46%, 25%);
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 13px 28px;
+    font-size: 15px;
+    min-width: 180px;
+    text-align: center;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    transition: transform 0.1s, border-bottom 0.1s, background 0.1s;
+}
+.btn:hover {
+    background: hsl(161, 50%, 55%);
+    transform: translateY(-1px);
+}
+.btn:active {
+    border-bottom: 2px solid hsl(163, 46%, 25%);
+    transform: translateY(2px);
+}
+
+.stMarkdown {
+    font-family: 'Nunito', sans-serif;
+}
