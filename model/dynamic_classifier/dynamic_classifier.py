@@ -3,7 +3,7 @@
 import numpy as np
 import os
 
-MODEL_PATH      = 'model/dynamic_classifier/dynamic_classifier.tflite'
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dynamic_classifier.tflite')
 SEQUENCE_LENGTH = 16    # frames per gesture sequence
 LANDMARK_DIM    = 42    # 21 landmarks × 2 (x, y)
 SCORE_TH        = 0.65  # raised from 0.5 — rejects uncertain predictions

@@ -192,7 +192,8 @@ def video_capture():
 
 
     keypoint_classifier = KeyPointClassifier()
-    with open('model/keypoint_classifier/keypoint_classifier_label.csv', encoding='utf-8-sig') as f:
+    _label_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'keypoint_classifier_label.csv')
+    with open(_label_path, encoding='utf-8-sig') as f:
         keypoint_classifier_labels = [row[0] for row in csv.reader(f)]
 
 
@@ -741,7 +742,7 @@ def process_dynamic_sequence(sequence):
     from model.dynamic_classifier.dynamic_classifier import DynamicGestureClassifier
 
     classifier = DynamicGestureClassifier()
-    label_path = 'model/dynamic_classifier/dynamic_classifier_label.csv'
+    label_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dynamic_classifier', 'dynamic_classifier_label.csv')
     with open(label_path, encoding='utf-8-sig') as f:
         labels = [row[0] for row in _csv.reader(f) if row]
 
@@ -772,7 +773,8 @@ def process_frame(img_file_buffer):
     )
 
     keypoint_classifier = KeyPointClassifier()
-    with open('model/keypoint_classifier/keypoint_classifier_label.csv', encoding='utf-8-sig') as f:
+    _label_path2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'keypoint_classifier_label.csv')
+    with open(_label_path2, encoding='utf-8-sig') as f:
         keypoint_classifier_labels = [row[0] for row in csv.reader(f)]
 
     image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)

@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import numpy as np
+import os
 import tensorflow as tf
+
+_DEFAULT_MODEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'keypoint_classifier.tflite')
 
 
 class KeyPointClassifier(object):
     def __init__(
         self,
-        model_path='model/keypoint_classifier/keypoint_classifier.tflite',
+        model_path=None,
         num_threads=1,
     ):
+        if model_path is None:
+            model_path = _DEFAULT_MODEL
         self.interpreter = tf.lite.Interpreter(model_path=model_path,
                                                num_threads=num_threads)
 
