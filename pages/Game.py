@@ -316,6 +316,11 @@ def app():
                         media_stream_constraints={"video": True, "audio": False},
                         async_processing=True,
                     )
+                    # Show load error prominently so we can diagnose quickly
+                    if ctx.video_processor and ctx.video_processor._load_error:
+                        st.error(f"⚠️ Dynamic model failed to load: {ctx.video_processor._load_error}")
+                    elif ctx.video_processor and ctx.video_processor._classifier is not None:
+                        st.success("✅ LSTM model loaded OK")
                     # Result saved by the button survives processor recreation on rerun
                     pending = st.session_state.pop("dynamic_pending", None)
                     if pending is not None:
