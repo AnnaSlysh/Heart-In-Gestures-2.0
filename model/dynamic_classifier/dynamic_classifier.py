@@ -12,7 +12,11 @@ SCORE_TH        = 0.65  # raised from 0.5 — rejects uncertain predictions
 class DynamicGestureClassifier:
     def __init__(self):
         import tensorflow as tf
-        self.interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+        print(f"[DynamicClassifier] TF={tf.__version__} path={MODEL_PATH} exists={os.path.exists(MODEL_PATH)}", flush=True)
+        with open(MODEL_PATH, 'rb') as f:
+            model_content = f.read()
+        print(f"[DynamicClassifier] model bytes={len(model_content)}", flush=True)
+        self.interpreter = tf.lite.Interpreter(model_content=model_content)
         self.interpreter.allocate_tensors()
         self.input_details  = self.interpreter.get_input_details()
         self.output_details = self.interpreter.get_output_details()
