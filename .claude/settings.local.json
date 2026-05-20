@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python train_dynamic.py)"
-    ]
-  }
-}
