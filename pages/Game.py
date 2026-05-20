@@ -266,48 +266,42 @@ def app():
                 if "camera_key" not in st.session_state:
                     st.session_state.camera_key = 0
 
-                if is_dynamic:
-                    if not dynamic_model_exists():
-                        st.error(
-                            "Модель динамічних жестів не знайдено. "
-                            "Запустіть `python train_dynamic.py` у папці Dynamic-Gestures-Training."
-                        )
-                    else:
-                        # Live video stream — processor collects 16 frames automatically
-                        ctx = webrtc_streamer(
-                            key=f"dynamic_{current_letter}",
-                            mode=WebRtcMode.SENDRECV,
-                            video_processor_factory=DynamicGestureProcessor,
-                            media_stream_constraints={"video": True, "audio": False},
-                            async_processing=True,
-                        )
-                        # Result saved by the button survives processor recreation on rerun
-                        pending = st.session_state.pop("dynamic_pending", None)
-                        if pending is not None:
-                            if ctx.video_processor:
-                                ctx.video_processor.reset()
-                            if pending:
-                                st.session_state["recognized_letter"] = pending
+                if is_dynamic and dynamic_model_exists():
+                    # Live video stream — processor collects 16 frames automatically
+                    ctx = webrtc_streamer(
+                        key=f"dynamic_{current_letter}",
+                        mode=WebRtcMode.SENDRECV,
+                        video_processor_factory=DynamicGestureProcessor,
+                        media_stream_constraints={"video": True, "audio": False},
+                        async_processing=True,
+                    )
+                    # Result saved by the button survives processor recreation on rerun
+                    pending = st.session_state.pop("dynamic_pending", None)
+                    if pending is not None:
+                        if ctx.video_processor:
+                            ctx.video_processor.reset()
+                        if pending:
+                            st.session_state["recognized_letter"] = pending
+                            recognition.process_letter()
+                        st.rerun()
+                    elif ctx.video_processor:
+                        result, frame_count = ctx.video_processor.get_result()
+                        if result is not None:
+                            ctx.video_processor.reset()
+                            if result:
+                                st.session_state["recognized_letter"] = result
                                 recognition.process_letter()
                             st.rerun()
-                        elif ctx.video_processor:
-                            result, frame_count = ctx.video_processor.get_result()
-                            if result is not None:
-                                ctx.video_processor.reset()
-                                if result:
-                                    st.session_state["recognized_letter"] = result
-                                    recognition.process_letter()
+                        else:
+                            st.caption("Тримайте жест — дочекайтесь підтвердження на відео, потім натисніть кнопку")
+                            if st.button("✅ Підтвердити жест",
+                                         key=f"submit_dyn_{current_index}",
+                                         use_container_width=True):
+                                # Read result NOW and save before the rerun loses it
+                                r, _ = ctx.video_processor.get_result()
+                                if r is not None:
+                                    st.session_state["dynamic_pending"] = r
                                 st.rerun()
-                            else:
-                                st.caption("Тримайте жест — дочекайтесь підтвердження на відео, потім натисніть кнопку")
-                                if st.button("✅ Підтвердити жест",
-                                             key=f"submit_dyn_{current_index}",
-                                             use_container_width=True):
-                                    # Read result NOW and save before the rerun loses it
-                                    r, _ = ctx.video_processor.get_result()
-                                    if r is not None:
-                                        st.session_state["dynamic_pending"] = r
-                                    st.rerun()
                 else:
                     img_file = st.camera_input(
                         "Покажіть жест / Show your gesture",
