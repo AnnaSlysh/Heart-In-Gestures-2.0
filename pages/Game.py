@@ -54,10 +54,15 @@ class DynamicGestureProcessor(VideoProcessorBase):
         self._last_t     = 0.0
         self._result     = None   # confirmed letter
         self._best_guess = None   # last single-classification guess (for overlay)
+        self._load_error = None   # error string if dynamic model failed to load
         try:
             self._classifier = DynamicGestureClassifier()
+            print("[DynamicGestureProcessor] dynamic classifier loaded OK", flush=True)
         except Exception as e:
+            import traceback as _tb
+            self._load_error = str(e)
             print(f"[DynamicGestureProcessor] dynamic classifier load failed: {e}", flush=True)
+            print(_tb.format_exc(), flush=True)
             self._classifier = None
         _label_path = _os.path.join(
             _os.path.dirname(_os.path.abspath(__file__)),
@@ -125,6 +130,19 @@ class DynamicGestureProcessor(VideoProcessorBase):
         else:
             cv2.putText(img, f"Zbyrayu: {buf_len}/{SEQUENCE_LENGTH}",
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (160, 160, 160), 2)
+
+        # Diagnostic badge — shows whether the LSTM model loaded
+        if self._classifier is not None:
+            badge_text = "LSTM: OK"
+            badge_color = (0, 180, 0)
+        else:
+            err_short = (self._load_error or "unknown")[:40]
+            badge_text = f"LSTM: FAIL [{err_short}]"
+            badge_color = (0, 0, 220)
+        h = img.shape[0]
+        cv2.putText(img, badge_text, (10, h - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, badge_color, 1)
+
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
     def _try_classify(self):
