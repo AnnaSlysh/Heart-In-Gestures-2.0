@@ -45,6 +45,7 @@ class DynamicGestureProcessor(VideoProcessorBase):
 
     def __init__(self):
         import csv as _csv
+        import os as _os
         from model.dynamic_classifier.dynamic_classifier import DynamicGestureClassifier
         self._lock       = threading.Lock()
         self._window     = deque(maxlen=SEQUENCE_LENGTH)  # rolling 16-frame window
@@ -53,9 +54,16 @@ class DynamicGestureProcessor(VideoProcessorBase):
         self._last_t     = 0.0
         self._result     = None   # confirmed letter
         self._best_guess = None   # last single-classification guess (for overlay)
-        self._classifier = DynamicGestureClassifier()
-        with open('model/dynamic_classifier/dynamic_classifier_label.csv',
-                  encoding='utf-8-sig') as f:
+        try:
+            self._classifier = DynamicGestureClassifier()
+        except Exception as e:
+            print(f"[DynamicGestureProcessor] classifier load failed: {e}", flush=True)
+            self._classifier = None
+        _label_path = _os.path.join(
+            _os.path.dirname(_os.path.abspath(__file__)),
+            '..', 'model', 'dynamic_classifier', 'dynamic_classifier_label.csv'
+        )
+        with open(_label_path, encoding='utf-8-sig') as f:
             self._labels = [row[0] for row in _csv.reader(f) if row]
         self._hands = mp.solutions.hands.Hands(
             static_image_mode=False,
@@ -94,7 +102,10 @@ class DynamicGestureProcessor(VideoProcessorBase):
             top, top_cnt = (Counter(self._history).most_common(1)[0]
                             if self._history else (None, 0))
 
-        if result:
+        if self._classifier is None:
+            cv2.putText(img, "Модель недоступна / Model unavailable",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 80, 220), 2)
+        elif result:
             cv2.putText(img, f"OK: {result} -- natisknit' knopku",
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 220, 0), 2)
         elif top:
@@ -107,6 +118,8 @@ class DynamicGestureProcessor(VideoProcessorBase):
 
     def _try_classify(self):
         """Called while holding self._lock."""
+        if self._classifier is None:
+            return
         idx = self._classifier(list(self._window))
         if 0 <= idx < len(self._labels):
             letter = self._labels[idx]
