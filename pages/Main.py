@@ -17,7 +17,7 @@ PAGES = {
 }
 
 st.sidebar.title("Меню")
-selection = st.sidebar.radio("", list(PAGES.keys()))
+selection = st.sidebar.radio("Навігація", list(PAGES.keys()), label_visibility="collapsed")
 
 page = PAGES[selection]
 utils.load_css("style.css")
