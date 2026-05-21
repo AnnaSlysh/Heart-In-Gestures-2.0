@@ -38,6 +38,84 @@ def _pre_process_landmark(landmark_list):
     return [v / mx for v in flat]
 
 
+class StaticGestureProcessor(VideoProcessorBase):
+    """Continuous live classifier for static letters — no camera reset, no blink.
+
+    Classifies every frame; the user confirms when the video shows the right letter.
+    """
+
+    def __init__(self):
+        import csv as _csv
+        import os as _os
+        from model.keypoint_classifier.keypoint_classifier import KeyPointClassifier
+        from model.keypoint_classifier.recognition import returnUkrainanLetter as _rul
+        self._lock   = threading.Lock()
+        self._letter = None          # most stable recent prediction
+        self._recent = []            # last few raw predictions for majority vote
+        self._rul    = _rul
+        try:
+            self._classifier = KeyPointClassifier()
+        except Exception as e:
+            print(f"[StaticGestureProcessor] classifier load failed: {e}", flush=True)
+            self._classifier = None
+        _lp = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                            '..', 'model', 'keypoint_classifier',
+                            'keypoint_classifier_label.csv')
+        with open(_lp, encoding='utf-8-sig') as f:
+            self._labels = [row[0] for row in _csv.reader(f) if row]
+        self._hands = mp.solutions.hands.Hands(
+            static_image_mode=False,
+            max_num_hands=1,
+            min_detection_confidence=0.7,
+            min_tracking_confidence=0.5,
+        )
+
+    def get_current(self):
+        with self._lock:
+            return self._letter
+
+    def recv(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        img = cv2.flip(img, 1)
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = self._hands.process(rgb)
+
+        letter = None
+        if results.multi_hand_landmarks and self._classifier is not None:
+            mp.solutions.drawing_utils.draw_landmarks(
+                img, results.multi_hand_landmarks[0],
+                mp.solutions.hands.HAND_CONNECTIONS)
+            lm_list   = _calc_landmark_list(img, results.multi_hand_landmarks[0])
+            processed = _pre_process_landmark(lm_list)
+            hand_id   = self._classifier(processed)
+            if 0 <= hand_id < len(self._labels):
+                mapped = self._rul(self._labels[hand_id]).upper()
+                if mapped != "?":
+                    letter = mapped
+
+        # Majority vote over last 5 frames for stability
+        with self._lock:
+            self._recent.append(letter)
+            if len(self._recent) > 5:
+                self._recent.pop(0)
+            votes = [l for l in self._recent if l is not None]
+            if votes:
+                top = Counter(votes).most_common(1)[0][0]
+                self._letter = top if votes.count(top) >= 3 else None
+            else:
+                self._letter = None
+            display = self._letter
+
+        if display:
+            cv2.putText(img, display, (10, 60),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.8, (0, 220, 0), 3)
+        else:
+            cv2.putText(img, "Pokazhit' zhest",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (160, 160, 160), 1)
+
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+
 class DynamicGestureProcessor(VideoProcessorBase):
     """Button-triggered fixed-length recorder that mirrors the training data collector.
 
@@ -200,8 +278,6 @@ def reset_game():
     st.session_state["wrong_gesture"] = None
     st.session_state["game_won"] = False
     st.session_state["recognized_letter"] = ""
-    st.session_state["dynamic_mode"] = False
-    st.session_state["dynamic_buffer"] = []
 
 
 def render_word(word, letter_states, current_index):
@@ -283,15 +359,31 @@ def app():
                 unsafe_allow_html=True,
             )
         else:
+            # Make both game columns stretch to equal height
+            st.markdown("""
+            <style>
+            div[data-testid="stHorizontalBlock"]:has(div[data-testid="stCustomComponentV1"]) {
+                align-items: stretch !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(div[data-testid="stCustomComponentV1"])
+            > div[data-testid="stColumn"] {
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(div[data-testid="stCustomComponentV1"])
+            > div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] {
+                flex: 1 !important;
+                display: flex !important;
+                flex-direction: column !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
             col1, col2 = st.columns(2)
 
             current_letter = word[current_index] if current_index < len(word) else None
             is_dynamic = current_letter in DYNAMIC_LETTERS if current_letter else False
 
             with col1:
-                if "camera_key" not in st.session_state:
-                    st.session_state.camera_key = 0
-
                 if is_dynamic:
                     ctx = webrtc_streamer(
                         key=f"dynamic_{current_letter}",
@@ -327,42 +419,51 @@ def app():
                                     recognition.process_letter()
                                     st.rerun()
                         else:
-                            st.caption("Натисніть кнопку, потім виконайте жест (~2 секунди)")
                             if st.button("🔴 Записати жест",
                                          key=f"rec_dyn_{current_index}",
                                          use_container_width=True):
                                 ctx.video_processor.start_recording()
                                 st.rerun()
                 else:
-                    img_file = st.camera_input(
-                        "Покажіть жест / Show your gesture",
-                        key=f"camera_{st.session_state.camera_key}"
+                    # Static gesture — continuous WebRTC stream, no camera restart
+                    ctx_s = webrtc_streamer(
+                        key=f"static_{current_index}",
+                        mode=WebRtcMode.SENDRECV,
+                        video_processor_factory=StaticGestureProcessor,
+                        media_stream_constraints={"video": True, "audio": False},
+                        async_processing=True,
                     )
-                    if img_file is not None:
-                        letter, annotated_image = recognition.process_frame(img_file)
+                    if ctx_s.video_processor:
+                        letter = ctx_s.video_processor.get_current()
                         if letter:
-                            st.session_state["recognized_letter"] = letter
-                            recognition.process_letter()
-                            st.session_state.camera_key += 1
-                            st.rerun()
+                            st.caption(f"Розпізнано: **{letter}** — підтвердіть або змініть жест")
                         else:
-                            st.warning("Руку не виявлено / No hand detected. Спробуйте ще / Try again.")
+                            st.caption("Покажіть жест перед камерою")
+                        if st.button("✅ Підтвердити жест",
+                                     key=f"confirm_static_{current_index}",
+                                     use_container_width=True):
+                            if letter:
+                                st.session_state["recognized_letter"] = letter
+                                recognition.process_letter()
+                                st.rerun()
+                            else:
+                                st.warning("Руку не виявлено / No hand detected. Спробуйте ще / Try again.")
 
             with col2:
-                if current_index < len(word):
-                    st.markdown(f'''
-                    <div class="game-stat">
-                        <div class="game-stat-label">Покажіть жест для літери</div>
-                        <div class="game-stat-value" style="font-size:56px;line-height:1.1;">{current_letter}</div>
-                    </div>
-                    ''', unsafe_allow_html=True)
-
                 wrong_value = wrong_gesture if wrong_gesture else "&nbsp;"
                 wrong_color = "hsl(0,60%,50%)" if wrong_gesture else "transparent"
+                target_html = f'''
+                    <div class="game-stat">
+                        <div class="game-stat-label">Покажіть жест для літери</div>
+                        <div class="game-stat-value" style="font-size:56px;line-height:1.1;">{current_letter or ""}</div>
+                    </div>''' if current_index < len(word) else ""
                 st.markdown(f'''
-                <div class="game-stat" style="margin-top:12px;">
-                    <div class="game-stat-label">Ваш жест (неправильно)</div>
-                    <div class="game-stat-value" style="font-size:56px;line-height:1.1;color:{wrong_color};">{wrong_value}</div>
+                <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:12px;">
+                    {target_html}
+                    <div class="game-stat">
+                        <div class="game-stat-label">Ваш жест (неправильно)</div>
+                        <div class="game-stat-value" style="font-size:56px;line-height:1.1;color:{wrong_color};">{wrong_value}</div>
+                    </div>
                 </div>
                 ''', unsafe_allow_html=True)
 
