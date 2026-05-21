@@ -452,20 +452,24 @@ def app():
             with col2:
                 wrong_value = wrong_gesture if wrong_gesture else "&nbsp;"
                 wrong_color = "hsl(0,60%,50%)" if wrong_gesture else "transparent"
-                target_html = f'''
-                    <div class="game-stat">
-                        <div class="game-stat-label">Покажіть жест для літери</div>
-                        <div class="game-stat-value" style="font-size:56px;line-height:1.1;">{current_letter or ""}</div>
-                    </div>''' if current_index < len(word) else ""
-                st.markdown(f'''
-                <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:12px;">
-                    {target_html}
-                    <div class="game-stat">
-                        <div class="game-stat-label">Ваш жест (неправильно)</div>
-                        <div class="game-stat-value" style="font-size:56px;line-height:1.1;color:{wrong_color};">{wrong_value}</div>
-                    </div>
-                </div>
-                ''', unsafe_allow_html=True)
+                target_html = (
+                    f'<div class="game-stat">'
+                    f'<div class="game-stat-label">Покажіть жест для літери</div>'
+                    f'<div class="game-stat-value" style="font-size:56px;line-height:1.1;">{current_letter or ""}</div>'
+                    f'</div>'
+                ) if current_index < len(word) else ""
+                wrong_html = (
+                    f'<div class="game-stat">'
+                    f'<div class="game-stat-label">Ваш жест (неправильно)</div>'
+                    f'<div class="game-stat-value" style="font-size:56px;line-height:1.1;color:{wrong_color};">{wrong_value}</div>'
+                    f'</div>'
+                )
+                st.markdown(
+                    f'<div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:12px;">'
+                    f'{target_html}{wrong_html}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
         st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
         st.button("Назад до меню", on_click=lambda: change_level("menu"), key="back_1button", use_container_width=True)
