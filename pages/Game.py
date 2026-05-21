@@ -299,6 +299,15 @@ def app():
                 display: flex !important;
                 flex-direction: column !important;
             }
+            /* Dynamic gesture camera: 1.5× shorter */
+            div[data-testid="stCustomComponentV1"] iframe {
+                height: 333px !important;
+                min-height: 0 !important;
+            }
+            div[data-testid="stCustomComponentV1"] {
+                height: 333px !important;
+                overflow: hidden;
+            }
             </style>
             """, unsafe_allow_html=True)
             col1, col2 = st.columns(2)
