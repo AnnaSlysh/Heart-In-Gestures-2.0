@@ -2,7 +2,7 @@ import streamlit as st
 import random
 import time
 import threading
-from collections import Counter, deque
+from collections import Counter
 import utils
 
 import sys
@@ -20,9 +20,7 @@ import mediapipe as mp
 
 DYNAMIC_LETTERS  = frozenset('ҐДЄЗЇЙКЦЩЬ')
 SEQUENCE_LENGTH  = 16
-RECORD_INTERVAL  = 0.067   # ~15 fps — matches training cadence
-CLASSIFY_EVERY   = 2        # run classifier after every N new frames
-CONFIRM_COUNT    = 5        # majority of recent results needed to accept a gesture
+RECORD_INTERVAL  = 0.13    # ~7.7 fps — matches training data collection cadence
 
 
 def _calc_landmark_list(image, landmarks):
@@ -41,27 +39,30 @@ def _pre_process_landmark(landmark_list):
 
 
 class DynamicGestureProcessor(VideoProcessorBase):
-    """Sliding-window classifier with majority voting for robust gesture recognition."""
+    """Button-triggered fixed-length recorder that mirrors the training data collector.
+
+    The user presses a button, performs the gesture over ~2 seconds while
+    SEQUENCE_LENGTH frames are captured at RECORD_INTERVAL spacing, then the
+    classifier runs once on the complete burst — exactly how training data was made.
+    """
 
     def __init__(self):
         import csv as _csv
         import os as _os
         from model.dynamic_classifier.dynamic_classifier import DynamicGestureClassifier
         self._lock       = threading.Lock()
-        self._window     = deque(maxlen=SEQUENCE_LENGTH)  # rolling 16-frame window
-        self._history    = deque(maxlen=10)                # recent classification results
-        self._new_frames = 0                               # frames added since last classify
+        self._recording  = False   # True while collecting a burst
+        self._seq        = []      # frames collected in the current burst
         self._last_t     = 0.0
-        self._result     = None   # confirmed letter
-        self._best_guess = None   # last single-classification guess (for overlay)
-        self._load_error = None   # error string if dynamic model failed to load
+        self._result     = None    # letter after classification
+        self._load_error = None
         try:
             self._classifier = DynamicGestureClassifier()
             print("[DynamicGestureProcessor] dynamic classifier loaded OK", flush=True)
         except Exception as e:
             import traceback as _tb
             self._load_error = str(e)
-            print(f"[DynamicGestureProcessor] dynamic classifier load failed: {e}", flush=True)
+            print(f"[DynamicGestureProcessor] load failed: {e}", flush=True)
             print(_tb.format_exc(), flush=True)
             self._classifier = None
         _label_path = _os.path.join(
@@ -70,20 +71,6 @@ class DynamicGestureProcessor(VideoProcessorBase):
         )
         with open(_label_path, encoding='utf-8-sig') as f:
             self._labels = [row[0] for row in _csv.reader(f) if row]
-        # Static classifier fallback (used when dynamic model is unavailable)
-        try:
-            from model.keypoint_classifier.keypoint_classifier import KeyPointClassifier
-            self._static_cls = KeyPointClassifier()
-            _skp = _os.path.join(
-                _os.path.dirname(_os.path.abspath(__file__)),
-                '..', 'model', 'keypoint_classifier', 'keypoint_classifier_label.csv'
-            )
-            with open(_skp, encoding='utf-8-sig') as f:
-                self._static_labels_raw = [row[0] for row in _csv.reader(f)]
-        except Exception as e2:
-            print(f"[DynamicGestureProcessor] static fallback load failed: {e2}", flush=True)
-            self._static_cls = None
-            self._static_labels_raw = []
         self._hands = mp.solutions.hands.Hands(
             static_image_mode=False,
             max_num_hands=1,
@@ -91,96 +78,94 @@ class DynamicGestureProcessor(VideoProcessorBase):
             min_tracking_confidence=0.5,
         )
 
-    def recv(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        img = cv2.flip(img, 1)
-
-        now = time.time()
-        if now - self._last_t >= RECORD_INTERVAL:
-            self._last_t = now
-            rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            results = self._hands.process(rgb)
-            if results.multi_hand_landmarks:
-                lm_list = _calc_landmark_list(img, results.multi_hand_landmarks[0])
-                processed = _pre_process_landmark(lm_list)
-                with self._lock:
-                    if self._result is None:
-                        self._window.append(processed)
-                        self._new_frames += 1
-                        if (len(self._window) == SEQUENCE_LENGTH
-                                and self._new_frames >= CLASSIFY_EVERY):
-                            self._new_frames = 0
-                            self._try_classify()
-                mp.solutions.drawing_utils.draw_landmarks(
-                    img, results.multi_hand_landmarks[0],
-                    mp.solutions.hands.HAND_CONNECTIONS)
-
+    # ── called from Streamlit main thread ────────────────────────────
+    def start_recording(self):
         with self._lock:
-            result  = self._result
-            buf_len = len(self._window)
-            top, top_cnt = (Counter(self._history).most_common(1)[0]
-                            if self._history else (None, 0))
-
-        if result:
-            cv2.putText(img, f"OK: {result} -- natisknit' knopku",
-                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 220, 0), 2)
-        elif top:
-            cv2.putText(img, f"{top}  {top_cnt}/{CONFIRM_COUNT}",
-                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (80, 200, 80), 2)
-        else:
-            cv2.putText(img, f"Zbyrayu: {buf_len}/{SEQUENCE_LENGTH}",
-                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (160, 160, 160), 2)
-
-        # Diagnostic badge — shows whether the LSTM model loaded
-        if self._classifier is not None:
-            badge_text = "LSTM: OK"
-            badge_color = (0, 180, 0)
-        else:
-            err_short = (self._load_error or "unknown")[:40]
-            badge_text = f"LSTM: FAIL [{err_short}]"
-            badge_color = (0, 0, 220)
-        h = img.shape[0]
-        cv2.putText(img, badge_text, (10, h - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, badge_color, 1)
-
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-    def _try_classify(self):
-        """Called while holding self._lock."""
-        if self._classifier is None:
-            # Fallback: use static KeyPoint classifier on the most recent frame
-            if self._static_cls is not None and self._window:
-                from model.keypoint_classifier.recognition import returnUkrainanLetter
-                hand_id = self._static_cls(list(self._window[-1]))
-                if 0 <= hand_id < len(self._static_labels_raw):
-                    letter = returnUkrainanLetter(self._static_labels_raw[hand_id]).upper()
-                    if letter != "?":
-                        self._best_guess = letter
-                        self._history.append(letter)
-                        top, top_cnt = Counter(self._history).most_common(1)[0]
-                        if top_cnt >= CONFIRM_COUNT:
-                            self._result = top
-            return
-        idx = self._classifier(list(self._window))
-        if 0 <= idx < len(self._labels):
-            letter = self._labels[idx]
-            self._best_guess = letter
-            self._history.append(letter)
-            top, top_cnt = Counter(self._history).most_common(1)[0]
-            if top_cnt >= CONFIRM_COUNT:
-                self._result = top
+            self._recording = True
+            self._seq       = []
+            self._last_t    = 0.0
 
     def get_result(self):
         with self._lock:
-            return self._result, len(self._window)
+            return self._result, len(self._seq)
+
+    def is_recording(self):
+        with self._lock:
+            return self._recording
 
     def reset(self):
         with self._lock:
-            self._window.clear()
-            self._history.clear()
-            self._new_frames = 0
-            self._result     = None
-            self._best_guess = None
+            self._recording = False
+            self._seq       = []
+            self._last_t    = 0.0
+            self._result    = None
+
+    # ── WebRTC worker thread ──────────────────────────────────────────
+    def recv(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        img = cv2.flip(img, 1)
+        now = time.time()
+
+        # Always detect hand for landmark overlay
+        rgb     = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = self._hands.process(rgb)
+        processed = None
+        if results.multi_hand_landmarks:
+            lm_list   = _calc_landmark_list(img, results.multi_hand_landmarks[0])
+            processed = _pre_process_landmark(lm_list)
+            mp.solutions.drawing_utils.draw_landmarks(
+                img, results.multi_hand_landmarks[0],
+                mp.solutions.hands.HAND_CONNECTIONS)
+
+        # Capture frame into burst buffer at the training interval
+        classify_now = False
+        with self._lock:
+            if self._recording and now - self._last_t >= RECORD_INTERVAL:
+                self._last_t = now
+                # Zero-fill if hand absent (mirrors data collector behaviour)
+                self._seq.append(processed if processed is not None else [0.0] * 42)
+                if len(self._seq) >= SEQUENCE_LENGTH:
+                    self._recording = False
+                    classify_now    = True
+
+        # Classify outside the lock (can be slow)
+        if classify_now:
+            self._run_classify()
+
+        # Read state for overlay
+        with self._lock:
+            recording = self._recording
+            seq_len   = len(self._seq)
+            result    = self._result
+
+        # Overlay
+        if result:
+            cv2.putText(img, f"OK: {result}",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 220, 0), 2)
+        elif recording:
+            cv2.putText(img, f"Zapys: {seq_len}/{SEQUENCE_LENGTH}",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (80, 200, 80), 2)
+        else:
+            cv2.putText(img, "Gotovo — natysnit' 'Zapysaty'",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (160, 160, 160), 1)
+
+        # Model-loaded badge
+        badge = "LSTM: OK" if self._classifier else \
+                f"LSTM: FAIL [{(self._load_error or '')[:35]}]"
+        color = (0, 180, 0) if self._classifier else (0, 0, 220)
+        cv2.putText(img, badge, (10, img.shape[0] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+    def _run_classify(self):
+        """Classify self._seq. Safe to call outside lock."""
+        if self._classifier is None or len(self._seq) < SEQUENCE_LENGTH:
+            return
+        idx = self._classifier(self._seq[:SEQUENCE_LENGTH])
+        with self._lock:
+            if 0 <= idx < len(self._labels):
+                self._result = self._labels[idx]
 
 
 def change_level(level):
@@ -308,7 +293,6 @@ def app():
                     st.session_state.camera_key = 0
 
                 if is_dynamic:
-                    # Live video stream — processor collects 16 frames automatically
                     ctx = webrtc_streamer(
                         key=f"dynamic_{current_letter}",
                         mode=WebRtcMode.SENDRECV,
@@ -316,37 +300,38 @@ def app():
                         media_stream_constraints={"video": True, "audio": False},
                         async_processing=True,
                     )
-                    # Show load error prominently so we can diagnose quickly
-                    if ctx.video_processor and ctx.video_processor._load_error:
-                        st.error(f"⚠️ Dynamic model failed to load: {ctx.video_processor._load_error}")
-                    elif ctx.video_processor and ctx.video_processor._classifier is not None:
-                        st.success("✅ LSTM model loaded OK")
-                    # Result saved by the button survives processor recreation on rerun
-                    pending = st.session_state.pop("dynamic_pending", None)
-                    if pending is not None:
-                        if ctx.video_processor:
-                            ctx.video_processor.reset()
-                        if pending:
-                            st.session_state["recognized_letter"] = pending
-                            recognition.process_letter()
-                        st.rerun()
-                    elif ctx.video_processor:
-                        result, frame_count = ctx.video_processor.get_result()
+                    if ctx.video_processor:
+                        if ctx.video_processor._load_error:
+                            st.error(f"⚠️ Модель не завантажена: {ctx.video_processor._load_error}")
+
+                        result, seq_len = ctx.video_processor.get_result()
+                        recording       = ctx.video_processor.is_recording()
+
                         if result is not None:
+                            # Burst complete and classified — save and advance
                             ctx.video_processor.reset()
-                            if result:
-                                st.session_state["recognized_letter"] = result
-                                recognition.process_letter()
+                            st.session_state["recognized_letter"] = result
+                            recognition.process_letter()
                             st.rerun()
-                        else:
-                            st.caption("Тримайте жест — дочекайтесь підтвердження на відео, потім натисніть кнопку")
-                            if st.button("✅ Підтвердити жест",
-                                         key=f"submit_dyn_{current_index}",
+                        elif recording:
+                            # Show progress while the burst is being recorded
+                            st.caption(f"⏺ Запис: {seq_len}/{SEQUENCE_LENGTH} кадрів — тримайте жест...")
+                            if st.button("✅ Підтвердити (готово)",
+                                         key=f"confirm_dyn_{current_index}",
                                          use_container_width=True):
-                                # Read result NOW and save before the rerun loses it
+                                # Force-finish early if user is confident
                                 r, _ = ctx.video_processor.get_result()
                                 if r is not None:
-                                    st.session_state["dynamic_pending"] = r
+                                    ctx.video_processor.reset()
+                                    st.session_state["recognized_letter"] = r
+                                    recognition.process_letter()
+                                    st.rerun()
+                        else:
+                            st.caption("Натисніть кнопку, потім виконайте жест (~2 секунди)")
+                            if st.button("🔴 Записати жест",
+                                         key=f"rec_dyn_{current_index}",
+                                         use_container_width=True):
+                                ctx.video_processor.start_recording()
                                 st.rerun()
                 else:
                     img_file = st.camera_input(
